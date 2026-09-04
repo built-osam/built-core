@@ -617,15 +617,48 @@ Never ship a single fixed-size image to every device — a 1920px hero has no bu
 ## SECTION 8 — FORMS & CONTACT
 
 ### Standard Contact Form
-Every site uses the same standard form fields:
+Every site uses the same standard form fields unless the brief specifies otherwise:
 - Name (required)
 - Phone Number (required)
 - Email Address (required)
 - Message (required)
-- Submit button — label matches the CTA e.g. "Get a Free Quote" or "Send Message"
+- Submit button — label matches the primary CTA e.g. "Get a Free Quote" or "Send Message"
+
+### Hidden Fields — Required on Every Form
+Every form must include these hidden fields so the Worker knows where to send the email and how to log the submission:
+
+```html
+<input type="hidden" name="_recipient" value="[client email from brief]" />
+<input type="hidden" name="_subject" value="New Enquiry — [Business Name]" />
+<input type="hidden" name="_site" value="https://[client domain]" />
+<input type="hidden" name="_honeypot" value="" />
+```
+
+The `_site` field must be the full domain including https — e.g. `https://letsclear.co.uk` — not just the business name. This is stored in the database and shown in the email so enquiries can be traced back to the correct client site.
+
+### Service Dropdown
+Only add a service dropdown if the brief explicitly requests one under SPECIFIC AMENDS or ADDITIONAL NOTES. Do not add it by default.
+
+If requested, add it as a required select field between the Name field and the Message field:
+
+```html
+<div class="osam-form__field">
+  <label for="service">Service Required <span aria-hidden="true">*</span></label>
+  <select id="service" name="service" required>
+    <option value="" disabled selected>Select a service...</option>
+    <option value="[Service 1]">[Service 1]</option>
+    <option value="[Service 2]">[Service 2]</option>
+  </select>
+</div>
+```
+
+Services in the dropdown come from the brief — use the services listed under PAGES REQUIRED or SPECIFIC AMENDS. Never invent services.
+
+### Additional Custom Fields
+If the brief requests any other custom fields — e.g. preferred callback time, property type, postcode — add them between the standard fields in a logical order. Always mark them as required unless the brief says otherwise.
 
 ### Form Submission
-- Forms submit via Amazon SES through a Cloudflare Worker
+- Forms submit to the Cloudflare Worker at: https://built-form-worker.cloudflare-fe2.workers.dev
 - On successful submission — redirect to /thank-you/
 - Create a /thank-you/ page matching the site design with a friendly confirmation message
 - reCAPTCHA v3 active on all forms — invisible to the user
@@ -635,6 +668,7 @@ Every site uses the same standard form fields:
 The hero contact form is a condensed version of the standard form.
 Same fields but styled to sit within the hero section without overwhelming it.
 On mobile — the form stacks below the hero text.
+Include all hidden fields on the hero form as well as the main contact form.
 
 ---
 
