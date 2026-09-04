@@ -659,10 +659,26 @@ If the brief requests any other custom fields — e.g. preferred callback time, 
 
 ### Form Submission
 - Forms submit to the Cloudflare Worker at: https://built-form-worker.cloudflare-fe2.workers.dev
+- This Worker URL is fixed — use it on every site, do not change it
+- reCAPTCHA v3 site key: 6LeFXaktAAAAAL3wr1j-29JzkfAC_hIuf5xabQ3l
+- This site key is fixed — use it on every site, do not change it
 - On successful submission — redirect to /thank-you/
 - Create a /thank-you/ page matching the site design with a friendly confirmation message
-- reCAPTCHA v3 active on all forms — invisible to the user
+- reCAPTCHA v3 runs invisibly in the background — no checkbox shown to the user
 - Honeypot field added to every form for additional spam protection
+
+Add the reCAPTCHA script to the Layout.astro head on every site:
+```html
+<script src="https://www.google.com/recaptcha/api.js?render=6LeFXaktAAAAAL3wr1j-29JzkfAC_hIuf5xabQ3l"></script>
+```
+
+The form submission script must:
+1. Intercept the form submit event
+2. Call grecaptcha.execute with the site key and action "submit"
+3. Append the token as g-recaptcha-response to the form data
+4. POST to the Worker URL
+5. On success — redirect to /thank-you/
+6. On error — show the error message without reloading the page
 
 ### Hero Form
 The hero contact form is a condensed version of the standard form.
