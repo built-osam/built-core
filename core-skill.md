@@ -230,6 +230,14 @@ When no content is provided and the build requires original copy:
 
 **Additional charges:** If the brief mentions a surcharge for certain areas (e.g. London travel charge), include a clear, friendly note on the relevant service pages and the contact page.
 
+### Content Differentiation
+Every page must contain at least 40-50% unique content. Do not copy and paste the same paragraphs across multiple pages with only the location or service name swapped out. Each page must earn its own existence with genuinely different content — different angles, different detail, different structure. Google penalises duplicate content across a site and clients notice when pages feel copy-pasted.
+
+### FAQ Rules
+If a page includes a FAQ section, every question and answer must be specific to that page's topic and service. Never reuse or duplicate FAQs across multiple pages — even slightly reworded versions count as duplicates.
+
+FAQs must be generated from existing content on the site or from the brief — never invented. If there is no existing FAQ content and nothing in the brief to draw from, do not add a FAQ section. An absent FAQ is better than a made-up one.
+
 ### Content Rules — Never Do These
 - Never invent facts, qualifications, years of experience, or awards
 - Never invent testimonials or reviews
@@ -361,9 +369,13 @@ Sitemap: https://[domain]/sitemap.xml
 ```
 
 ### Internal Linking
-- Every page must link to at least two other pages naturally within the content
+- Every page must contain a minimum of 3 to 5 internal links naturally within the content
+- Links must use descriptive anchor text — never "click here", "read more", or "this page"
+- Good anchor text describes where the link goes: "our drain repair service", "get a free quote", "view our work in Brighton"
 - Service pages link to related service pages
 - Every page links to the contact page
+- Homepage links to all main service pages
+- Do not force links — they must read naturally within the surrounding content
 
 ---
 
@@ -523,12 +535,35 @@ Any button or link that uses only an icon (no text) must have an aria-label:
 ### Cookie Consent Banner
 Any site running GA4, GTM, Meta Pixel, or any other tracking script needs an actual consent mechanism — the footer link to the Cookies & Privacy Policy alone does not satisfy UK GDPR/PECR.
 
-- Show a simple banner on first visit, before any tracking scripts fire.
-- Give an "Accept" and a "Reject" option that are equally easy to use — never bury reject behind extra clicks or make accept the only prominent button.
-- Do not load GA4 / GTM / Meta Pixel until the visitor accepts. If rejected, don't load them at all for that visit.
-- Remember the visitor's choice (a first-party cookie or localStorage) so the banner doesn't reappear on every page.
-- Include a short line of text and a link to the Cookies & Privacy Policy page.
-- Keep it simple — a lightweight custom banner component (`CookieBanner.astro`) is enough; a full consent-management platform is not required for this type of site.
+**Cookie categories — three types, handled differently:**
+
+- **Necessary** — the consent cookie itself (localStorage entry). Does not require consent. Always active.
+- **Analytics** — GA4, GTM. Require consent before loading.
+- **Marketing** — Meta Pixel, any ad tracking. Require consent before loading.
+
+For small business brochure sites, implement this as two clear options rather than a complex category manager:
+- **Accept** = accepts Analytics and Marketing
+- **Reject** = rejects Analytics and Marketing. Necessary cookies still set.
+
+**Standard wording — use this exact text on every site:**
+"We use cookies to run this site and understand how it's used. Necessary cookies are always active. See our [Cookies & Privacy Policy](https://osamweb.com/cookies-privacy-policy/)."
+
+**Two buttons — Reject and Accept:**
+- Both buttons must be the same size and equally easy to click
+- Accept button: use the site's base/brand colour
+- Reject button: neutral colour (#6B7280 grey) — never hidden, never smaller than Accept
+- Never make Reject a plain text link while Accept is a button
+
+**Blocking behaviour — this is the critical part:**
+- All tracking scripts (GA4, GTM, Meta Pixel, any others) must be placed inside the CookieBanner.astro component, not in Layout.astro
+- On first visit — show the banner, do not load any tracking scripts
+- If visitor clicks Accept — load Analytics and Marketing scripts, save cookie_consent=accepted to localStorage, hide the banner
+- If visitor clicks Reject — do not load Analytics or Marketing scripts, save cookie_consent=rejected to localStorage, hide the banner
+- On every subsequent page load — check localStorage first. If accepted, load tracking silently. If rejected, load nothing. If no value, show the banner again
+- Never load tracking scripts before checking localStorage — even for a fraction of a second
+
+**Implementation:**
+Use CookieBanner.astro as a self-contained component. It handles the banner UI, the localStorage check, and the conditional script injection all in one place. Include it in Layout.astro — but tracking scripts go inside it, not in the Layout head directly.
 
 ### Accessibility Checklist (add to pre-launch)
 - [ ] Viewport meta does not disable zoom
@@ -656,7 +691,8 @@ npm install @astrojs/sitemap
 [client-name]-website/
 ├── public/
 │   ├── images/
-│   ├── favicon.ico
+│   ├── favicon.ico         (32x32px, generated from logo)
+│   ├── apple-touch-icon.png (180x180px, generated from logo)
 │   ├── robots.txt
 │   ├── sitemap.xml
 │   ├── llms.txt
@@ -685,6 +721,20 @@ npm install @astrojs/sitemap
 └── package.json
 ```
 
+### Favicon
+Generate favicons from the client logo before building. Never leave the default Astro favicon.
+
+- **favicon.ico** — 32x32px. Use the logo mark (icon only, not full wordmark). If the logo has a coloured background, use the base colour as the favicon background. Save to `/public/favicon.ico`.
+- **apple-touch-icon.png** — 180x180px. Same logo mark with sufficient padding around it. Save to `/public/apple-touch-icon.png`.
+
+Add both to the `<head>` in Layout.astro:
+```html
+<link rel="icon" type="image/x-icon" href="/favicon.ico" />
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+```
+
+If no logo is provided — use the first letter of the business name on the base colour background as the favicon.
+
 ### Tracking Codes
 Extract all tracking codes from the existing website source code before building.
 Check for:
@@ -695,6 +745,36 @@ Check for:
 
 Place all tracking codes in the Layout.astro `<head>` section.
 Copy IDs exactly — do not modify.
+
+### Google Fonts — Preloading
+If the build uses Google Fonts, never just drop a standard `<link>` stylesheet in the head — this blocks rendering and causes a flash of unstyled text, hurting Lighthouse scores.
+
+Use the preload pattern instead:
+```html
+<!-- Preconnect to Google Fonts servers -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+<!-- Preload the font stylesheet -->
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=[FontName]:wght@400;600;700&display=swap" />
+
+<!-- Load it non-blocking -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=[FontName]:wght@400;600;700&display=swap" media="print" onload="this.media='all'" />
+
+<!-- Fallback for no-JS -->
+<noscript>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=[FontName]:wght@400;600;700&display=swap" />
+</noscript>
+```
+
+Always include `display=swap` in the Google Fonts URL so body text renders in the fallback font immediately while the custom font loads — no invisible text.
+
+Define a font stack fallback in CSS so the layout doesn't shift when the font loads:
+```css
+body {
+  font-family: '[FontName]', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+```
 
 ### GA4 Conversion Events
 Installing the tracking ID alone only gives pageviews — every site needs two conversion events set up on top:
@@ -742,6 +822,33 @@ git commit -m "Initial build — [Client Name]"
 git push -u origin main
 ```
 
+### 301 Redirect Audit — All Build Types
+Before building any site — Carbon Copy, Modernise, or New Build — crawl the existing live site to find every URL that currently resolves. Do not rely on the sitemap alone — WordPress and other CMS platforms generate URLs that get indexed but never appear in sitemaps (category pages, tag pages, author pages, old campaign pages, paginated pages, duplicate contact pages etc).
+
+**How to crawl:**
+Use a tool like Screaming Frog, Sitebulb, or the following curl-based approach to spider the site and list all resolving URLs before starting the build.
+
+**What to do with the list:**
+1. Compare every crawled URL against the pages being built
+2. Any URL that exists on the old site but is NOT being rebuilt needs a 301 redirect to the closest equivalent page
+3. Build the redirect map before writing any code — add every redirect to `public/_redirects`:
+```
+/old-page/    /new-page/    301
+/category/drainage/    /services/drainage/    301
+```
+4. If there is no obvious equivalent — redirect to the homepage or the most relevant service page. Never leave it as a 404.
+5. Test every redirect after deploy
+
+**Common URLs to check even on Carbon Copy builds:**
+- Trailing slash variants — `/services` vs `/services/`
+- www vs non-www
+- Old WordPress category, tag, and author URLs
+- Any paginated URLs — `/page/2/` etc
+- Old campaign or seasonal pages
+- Duplicate contact pages — `/contact` and `/contact-us` both resolving
+
+Add a checklist item: all crawled URLs from the old site either exist in the new build or have a 301 redirect in `_redirects`.
+
 ### Cloudflare Pages Deployment
 - Connect GitHub repo to Cloudflare Pages
 - Build command: `npm run build`
@@ -761,6 +868,26 @@ Cloudflare handles SSL automatically.
 Test every site on, at minimum:
 - Chrome (latest), Safari (latest, including iOS Safari), Firefox (latest), Edge (latest)
 - Desktop (1440px+), tablet (768–1024px), mobile (390px, both iOS and Android)
+
+### Post-Build Content Quality Pass
+After the full site is built, run a dedicated content quality pass before the pre-launch checklist. Check every page for:
+
+**Content depth:**
+- Does each page have enough content to be genuinely useful — not just a few sentences?
+- Is each page at least 40-50% unique compared to other pages on the site?
+- Are FAQs present where relevant and genuinely page-specific?
+
+**Internal linking:**
+- Does every page have at least 3 to 5 internal links with descriptive anchor text?
+- Does every page link to the contact page?
+
+**CTA placement:**
+- Is there a clear CTA above the fold on every page?
+- Is there a CTA in the middle of longer pages?
+- Is there a CTA at the bottom of every page before the footer?
+- CTAs should not all say the same thing — vary the wording naturally
+
+**If any of these fail — fix them before moving to the pre-launch checklist.**
 
 ### Pre-Launch Checklist
 - [ ] All pages present and URLs match brief / original exactly
@@ -785,6 +912,7 @@ Test every site on, at minimum:
 - [ ] OG social sharing image set on every page
 - [ ] sitemap.xml accessible at /sitemap.xml
 - [ ] robots.txt accessible at /robots.txt
+- [ ] Run `npm run build` and confirm it completes without errors before running the SEO audit — check the dist folder output, not just the source files
 - [ ] Schema markup validates at https://search.google.com/test/rich-results
 - [ ] Lighthouse 90+ on Performance and SEO
 - [ ] SSL active
