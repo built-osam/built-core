@@ -24,6 +24,26 @@ Do not proceed to the brief or any build work until all three have been read.
 
 Read the full brief before writing a single line of code. Understand the build type, the business, the design direction, and all specific amends. If anything in the brief is unclear or contradictory, flag it before proceeding — do not guess.
 
+## SPEED & EFFICIENCY RULES
+
+These rules apply to every build. The target build time is 30 to 45 minutes maximum. Do not exceed this.
+
+**These are hard rules — not guidelines:**
+
+- Build every page first. Do not stop to audit, check, or review anything until all pages are built.
+- Do NOT run Lighthouse, contrast audits, accessibility checkers, or any automated testing tool during the build.
+- Do NOT take screenshots to check your own work mid-build. Build it, move on.
+- Do NOT loop back over completed pages. Once a page is built, it is done until the designer reviews it.
+- Do NOT run npm run build until all pages are complete and you are ready to hand over.
+- Do NOT fix cosmetic issues, spacing, or minor visual details during the build. Build first, fix later.
+- Fix ONLY errors that would stop the site loading — a page that 404s, a build that fails to compile, a form that throws an error.
+- When all pages are built, run npm run build once, fix any compile errors, then stop.
+- Output a handover summary listing every page built and anything the designer needs to check.
+- Then stop completely. Wait for the designer to review and send all amends in one message.
+- Do not make any further changes until you receive that message.
+
+**The designer will catch visual issues. Your job is to build fast and hand over.**
+
 ---
 
 ## SECTION 1 — HOW TO READ THE BRIEF
@@ -938,6 +958,19 @@ After the full site is built, run a dedicated content quality pass before the pr
 - CTAs should not all say the same thing — vary the wording naturally
 
 **If any of these fail — fix them before moving to the pre-launch checklist.**
+
+### Post-Amend Push Process
+After every round of amends — whether during the build review or after the site is live — always push changes to GitHub immediately. Cloudflare Pages will redeploy automatically within 60 seconds.
+
+```bash
+git add .
+git commit -m "Amends — [brief description of what changed]"
+git push
+```
+
+Do this after every single set of amends. Never leave changes sitting locally without pushing.
+
+If the designer asks for further changes after the initial push, apply all changes, then run the same three commands above. The pages.dev link and live domain will both update automatically.
 
 ### Pre-Launch Checklist
 - [ ] All pages present and URLs match brief / original exactly
