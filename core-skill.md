@@ -264,6 +264,14 @@ FAQs must be generated from existing content on the site or from the brief — n
 - Never use placeholder text (Lorem Ipsum) — if content is missing, write real content or flag it
 - Never use the phrase "we are a leading provider" or similar generic claims
 - Never write more than 300 words on any single section without a clear reason
+- Never use elongated hyphens (em dashes) in any content or copy — they look AI generated. Use a regular hyphen or rewrite the sentence instead.
+
+### Thank You Page
+The thank you page must display this exact message after a successful form submission:
+
+"Thank you — your message has been sent. We will be in touch shortly."
+
+Use a regular hyphen, not an em dash. Keep it short and friendly. Match the site design.
 
 ---
 
@@ -687,18 +695,48 @@ If the brief requests any other custom fields — e.g. preferred callback time, 
 - reCAPTCHA v3 runs invisibly in the background — no checkbox shown to the user
 - Honeypot field added to every form for additional spam protection
 
-Add the reCAPTCHA script to the Layout.astro head on every site:
+Do NOT add the reCAPTCHA script to Layout.astro. Loading it globally adds ~771ms to every page including pages with no form.
+
+Instead, load reCAPTCHA lazily — only on pages with a form, triggered on first interaction:
+
 ```html
-<script src="https://www.google.com/recaptcha/api.js?render=6LeFXaktAAAAAL3wr1j-29JzkfAC_hIuf5xabQ3l"></script>
+<!-- Add this only inside ContactForm.astro, not Layout.astro -->
+<script>
+  let recaptchaLoaded = false
+
+  function loadRecaptcha() {
+    if (recaptchaLoaded) return
+    recaptchaLoaded = true
+    const script = document.createElement('script')
+    script.src = 'https://www.google.com/recaptcha/api.js?render=6LeFXaktAAAAAL3wr1j-29JzkfAC_hIuf5xabQ3l'
+    document.head.appendChild(script)
+  }
+
+  // Load on first interaction with any form field
+  document.querySelectorAll('form input, form textarea, form select').forEach(el => {
+    el.addEventListener('focusin', loadRecaptcha, { once: true })
+  })
+</script>
 ```
 
 The form submission script must:
-1. Intercept the form submit event
+1. Ensure reCAPTCHA is loaded before submitting
 2. Call grecaptcha.execute with the site key and action "submit"
 3. Append the token as g-recaptcha-response to the form data
 4. POST to the Worker URL
 5. On success — redirect to /thank-you/
 6. On error — show the error message without reloading the page
+
+**reCAPTCHA notice — required under every contact form, non-negotiable:**
+```html
+<p class="recaptcha-notice">
+  This site is protected by reCAPTCHA and the Google
+  <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Privacy Policy</a> and
+  <a href="https://policies.google.com/terms" target="_blank" rel="noopener">Terms of Service</a> apply.
+</p>
+```
+
+Use exactly this wording. Do not add "Your details are only used to reply to your enquiry" or any other text. Do not remove the spaces before the links.
 
 ### Hero Form
 The hero contact form is a condensed version of the standard form.
