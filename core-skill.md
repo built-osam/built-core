@@ -53,7 +53,7 @@ These rules apply to every build. The target build time is 30 to 45 minutes maxi
 **Carbon Copy**
 Rebuild the existing website exactly as it is. Same design, same layout, same content, same images, same URLs. The client must not be able to tell the difference. Do not modernise, do not rewrite, do not improve. Copy it precisely.
 
-Verification: before starting, take full-page screenshots of every existing page at desktop (1440px) and mobile (390px) widths. After the build, take matching screenshots of the new site at the same widths and compare them side by side — layout, spacing, copy, and images should all match. This is the actual test of whether the build succeeded, not just a visual once-over.
+Screenshots: do not take screenshots during the build. Once all pages are built and npm run build completes, take screenshots of key pages — homepage, one service page, contact page — at desktop and mobile to verify the layout before handover. For Carbon Copy builds, compare every page against the original.
 
 **Modernise & Amend**
 Keep the overall style and brand familiar but update the design to feel current. Apply all specific amends listed in the brief. Read the design call notes carefully — they take priority over your own design decisions. If example websites are provided, study them and take direction from their layout, feel, and structure.
@@ -939,25 +939,15 @@ Test every site on, at minimum:
 - Chrome (latest), Safari (latest, including iOS Safari), Firefox (latest), Edge (latest)
 - Desktop (1440px+), tablet (768–1024px), mobile (390px, both iOS and Android)
 
-### Post-Build Content Quality Pass
-After the full site is built, run a dedicated content quality pass before the pre-launch checklist. Check every page for:
+### Post-Build Check — 5 Minutes Maximum
+After all pages are built and npm run build completes, do a quick pass only. Do not spend more than 5 minutes on this.
 
-**Content depth:**
-- Does each page have enough content to be genuinely useful — not just a few sentences?
-- Is each page at least 40-50% unique compared to other pages on the site?
-- Are FAQs present where relevant and genuinely page-specific?
+Check only:
+- Every page has at least one internal link to the contact page
+- Every page has a CTA above the fold
+- No page is a copy-paste of another page
 
-**Internal linking:**
-- Does every page have at least 3 to 5 internal links with descriptive anchor text?
-- Does every page link to the contact page?
-
-**CTA placement:**
-- Is there a clear CTA above the fold on every page?
-- Is there a CTA in the middle of longer pages?
-- Is there a CTA at the bottom of every page before the footer?
-- CTAs should not all say the same thing — vary the wording naturally
-
-**If any of these fail — fix them before moving to the pre-launch checklist.**
+Flag anything that fails in the handover summary. The designer will review the rest.
 
 ### Post-Amend Push Process
 After every round of amends — whether during the build review or after the site is live — always push changes to GitHub immediately. Cloudflare Pages will redeploy automatically within 60 seconds.
@@ -980,10 +970,10 @@ If the designer asks for further changes after the initial push, apply all chang
 - [ ] For Modernise builds with URL changes — all old URLs 301 redirect to their new equivalent, tested
 - [ ] Cookie consent banner present, blocks tracking scripts until accepted
 - [ ] Security headers (`_headers` file) present and verified at securityheaders.com
-- [ ] Core Web Vitals checked via PageSpeed Insights — LCP, CLS, INP within target
+- [ ] Core Web Vitals checked via PageSpeed Insights — LCP under 2.5s, CLS under 0.1, INP under 200ms. Run once at the end of the build after npm run build, not during.
 - [ ] All phone numbers are tel: links
 - [ ] GA4 conversion events firing for form submission and phone click
-- [ ] Carbon Copy builds only — screenshot comparison against original completed, no visible differences
+- [ ] Carbon Copy builds only — take full page screenshots of every page at desktop (1440px) and mobile (390px) and compare against the original site. Layout, spacing, copy, and images must match. This is non-negotiable for Carbon Copy builds.
 - [ ] Tested across full browser/device matrix
 - [ ] Phone bar visible on every page
 - [ ] Hero contains form, CTA, and Google badge (if applicable)
