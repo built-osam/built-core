@@ -797,17 +797,48 @@ This must appear on every site, on every page, below the footer. Do not style it
 
 ## SECTION 10 — TECHNICAL STANDARDS
 
+### GitHub & Cloudflare Naming Convention
+
+**One rule, applied consistently everywhere: strip the TLD, keep everything else, always prefix the repo with `client-`.**
+
+Take the client's domain, remove the extension entirely (`.co.uk`, `.com`, `.org`, `.net`, whatever it is), and don't substitute it with anything, don't hyphenate it in. What's left is the slug used for both the GitHub repo and the Cloudflare Pages project name.
+
+| | Value |
+|---|---|
+| Client domain | `leeverityupholsteryservice.co.uk` |
+| Slug (domain, TLD stripped) | `leeverityupholsteryservice` |
+| GitHub repo | `client-leeverityupholsteryservice` |
+| Cloudflare Pages project name | `leeverityupholsteryservice` |
+| Live pages.dev URL | `leeverityupholsteryservice.pages.dev` |
+
+Another example:
+
+| | Value |
+|---|---|
+| Client domain | `plastererdorking.co.uk` |
+| Slug (domain, TLD stripped) | `plastererdorking` |
+| GitHub repo | `client-plastererdorking` |
+| Cloudflare Pages project name | `plastererdorking` |
+
+**Rules:**
+- GitHub repo = `client-` + slug. Always.
+- Cloudflare Pages project name = slug only, no `client-` prefix. This is what sets the `pages.dev` subdomain.
+- If the domain already contains hyphens (e.g. `more-sleep-more-smiles.com`), leave them exactly as they are — just drop the TLD.
+- Never append the TLD as a hyphenated suffix (e.g. `-co-uk`). That was an earlier inconsistency in this file and is now retired — don't use it on new builds.
+- Never invent a shortened or abbreviated version of the domain for either name. The slug is always the domain with only the TLD removed.
+
 ### Astro Project Setup
 ```bash
-npm create astro@latest [client-name]-website
-cd [client-name]-website
+npm create astro@latest client-[slug]
+cd client-[slug]
 npm install
 npm install @astrojs/sitemap
 ```
+Example: for `leeverityupholsteryservice.co.uk`, run `npm create astro@latest client-leeverityupholsteryservice`.
 
 ### File Structure
 ```
-[client-name]-website/
+client-[slug]/
 ├── public/
 │   ├── images/
 │   ├── favicon.ico         (32x32px, generated from logo)
@@ -942,6 +973,8 @@ Every site must achieve before launch:
 
 The GitHub organisation is **built-osam**. Not osam-websites. Not any other name. Always built-osam.
 
+**Repo naming:** see "GitHub & Cloudflare Naming Convention" above. Strip the TLD from the client domain, prefix with `client-`. Do not use the old `-co-uk` suffix style on new builds.
+
 **Step 1 — Install GitHub CLI if not present**
 ```bash
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
@@ -956,9 +989,9 @@ When prompted: select GitHub.com, HTTPS, log in via browser.
 
 **Step 3 — Create the private repo in built-osam and push**
 ```bash
-gh repo create built-osam/client-[domain] --private --source=. --remote=origin --push
+gh repo create built-osam/client-[slug] --private --source=. --remote=origin --push
 ```
-Replace [domain] with the client domain e.g. `client-plastererdorking.co.uk`
+Replace [slug] with the client domain with the TLD removed, e.g. for `plastererdorking.co.uk` this is `gh repo create built-osam/client-plastererdorking --private --source=. --remote=origin --push`
 
 If the repo already exists:
 ```bash
@@ -969,21 +1002,28 @@ git push -u origin main
 
 **Step 4 — Tell the designer**
 Once pushed, output:
-- The GitHub repo URL: https://github.com/built-osam/client-[domain]
+- The GitHub repo URL: https://github.com/built-osam/client-[slug]
 - The Cloudflare Pages connection steps below
 - Any items from the handover summary that need attention
 
 **Step 5 — Cloudflare Pages connection (designer does this)**
-1. Cloudflare dashboard — Workers & Pages — Create — Pages — Connect to Git
-2. Authorise built-osam organisation
-3. Select the client repo e.g. client-more-sleep-more-smiles
-4. Project name: [domain without client- prefix] e.g. more-sleep-more-smiles — this sets the pages.dev URL
-5. Build command: `npm run build`
-6. Output directory: `dist`
-7. Production branch: `main`
-8. Click Save and Deploy — pages.dev link generated automatically
 
-Every future push to GitHub triggers an automatic redeploy. This is the only correct deployment method.
+Cloudflare's dashboard defaults new projects into a Workers-style flow (a "Deploy command" box). Do not use that flow — it creates a Worker project rather than a proper Pages project. Instead:
+
+1. Workers & Pages → Create application
+2. On "Make something new", scroll to the bottom and click **Continue to Pages** (labelled "legacy Pages workflow")
+3. **Get started** under Import an existing Git repository
+4. Select the client repo e.g. `client-plastererdorking`
+5. Project name: the slug only, no `client-` prefix, e.g. `plastererdorking` — this sets the pages.dev URL
+6. Framework preset: Astro, if listed (auto-detected)
+7. Build command: `npm run build`
+8. Build output directory: `dist`
+9. Production branch: `main`
+10. Click Save and Deploy — pages.dev link generated automatically
+
+No deploy command field, no API token needed on this path. Every future push to GitHub triggers an automatic redeploy. This is the only correct deployment method.
+
+Signs you've landed on the wrong (Workers-style) screen instead: a "Deploy command" field containing `npx wrangler deploy`, an "API token" dropdown, or a "Non-production branch deploy command" field under Advanced settings. Back out and use "Continue to Pages" rather than trying to fix it in place — fields like Build output directory don't exist on that path.
 
 ### 301 Redirect Audit — All Build Types
 Before building any site — Carbon Copy, Modernise, or New Build — crawl the existing live site to find every URL that currently resolves. Do not rely on the sitemap alone — WordPress and other CMS platforms generate URLs that get indexed but never appear in sitemaps (category pages, tag pages, author pages, old campaign pages, paginated pages, duplicate contact pages etc).
@@ -1013,7 +1053,7 @@ Use a tool like Screaming Frog, Sitebulb, or the following curl-based approach t
 Add a checklist item: all crawled URLs from the old site either exist in the new build or have a 301 redirect in `_redirects`.
 
 ### Cloudflare Pages Deployment
-- Connect GitHub repo to Cloudflare Pages
+- Connect GitHub repo to Cloudflare Pages (see Step 5 above — always via "Continue to Pages", never the Workers-style flow)
 - Build command: `npm run build`
 - Output directory: `dist`
 - Deploy and share the pages.dev preview link with the client before pointing the domain
