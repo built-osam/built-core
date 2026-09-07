@@ -921,14 +921,58 @@ Every site must achieve before launch:
 - No render-blocking scripts
 - CSS and JS minified
 
-### GitHub
+### GitHub Push — End of Every Build
+
+**The order is non-negotiable: GitHub first, Cloudflare second. Always.**
+
+**NEVER use `wrangler pages deploy` or any direct upload method. Cloudflare must connect to the GitHub repo and build from it. Direct uploads bypass GitHub entirely, break the amend process, remove rollback capability, and mean no one else can ever pick up the work.**
+
+**If anything prevents the GitHub push — STOP. Tell the designer what the problem is. Do not find a workaround. Do not deploy to Cloudflare. Do not continue.**
+
+The GitHub organisation is **built-osam**. Not osam-websites. Not any other name. Always built-osam.
+
+**Step 1 — Install GitHub CLI if not present**
 ```bash
-git init
-git remote add origin https://github.com/osam-websites/client-[name]
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+/opt/homebrew/bin/brew install gh
+```
+
+**Step 2 — Authenticate if needed**
+```bash
+gh auth status || gh auth login
+```
+When prompted: select GitHub.com, HTTPS, log in via browser.
+
+**Step 3 — Create the private repo in built-osam and push**
+```bash
+gh repo create built-osam/client-[domain] --private --source=. --remote=origin --push
+```
+Replace [domain] with the client domain e.g. `client-plastererdorking.co.uk`
+
+If the repo already exists:
+```bash
 git add .
 git commit -m "Initial build — [Client Name]"
 git push -u origin main
 ```
+
+**Step 4 — Tell the designer**
+Once pushed, output:
+- The GitHub repo URL: https://github.com/built-osam/client-[domain]
+- The Cloudflare Pages connection steps below
+- Any items from the handover summary that need attention
+
+**Step 5 — Cloudflare Pages connection (designer does this)**
+1. Cloudflare dashboard — Workers & Pages — Create — Pages — Connect to Git
+2. Authorise built-osam organisation
+3. Select the client repo e.g. client-more-sleep-more-smiles
+4. Project name: [domain without client- prefix] e.g. more-sleep-more-smiles — this sets the pages.dev URL
+5. Build command: `npm run build`
+6. Output directory: `dist`
+7. Production branch: `main`
+8. Click Save and Deploy — pages.dev link generated automatically
+
+Every future push to GitHub triggers an automatic redeploy. This is the only correct deployment method.
 
 ### 301 Redirect Audit — All Build Types
 Before building any site — Carbon Copy, Modernise, or New Build — crawl the existing live site to find every URL that currently resolves. Do not rely on the sitemap alone — WordPress and other CMS platforms generate URLs that get indexed but never appear in sitemaps (category pages, tag pages, author pages, old campaign pages, paginated pages, duplicate contact pages etc).
