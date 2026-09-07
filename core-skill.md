@@ -567,14 +567,25 @@ Any site running GA4, GTM, Meta Pixel, or any other tracking script needs an act
 
 - **Necessary** — the consent cookie itself (localStorage entry). Does not require consent. Always active.
 - **Analytics** — GA4, GTM. Require consent before loading.
-- **Marketing** — Meta Pixel, any ad tracking. Require consent before loading.
+- **Marketing** — Meta Pixel, Google Ads, any ad tracking. Require consent before loading.
 
-For small business brochure sites, implement this as two clear options rather than a complex category manager:
-- **Accept** = accepts Analytics and Marketing
-- **Reject** = rejects Analytics and Marketing. Necessary cookies still set.
+**Check the brief for TRACKING field before building the banner:**
+
+**Standard build (GA4 only — no Meta Pixel or Google Ads):**
+Use a simple two button banner — Accept and Reject. No settings panel needed.
+- Accept = loads GA4
+- Reject = blocks GA4
+
+**Advanced build (GA4 + Meta Pixel or Google Ads):**
+Add a Settings button alongside Accept and Reject. The settings panel shows:
+- Analytics Cookies (GA4) — toggle on/off
+- Marketing Cookies (Meta Pixel / Google Ads) — toggle on/off
+Save individual preferences to localStorage per category.
 
 **Standard wording — use this exact text on every site:**
-"We use cookies to run this site and understand how it's used. Necessary cookies are always active. See our [Cookies & Privacy Policy](https://osamweb.com/cookies-privacy-policy/)."
+"We use cookies to run this site and understand how it's used. See our [Cookies & Privacy Policy](https://osamweb.com/cookies-privacy-policy/)."
+
+Note the space before the link. Never remove it. Never add "Necessary cookies are always active" or any other text.
 
 **Two buttons — Reject and Accept:**
 - Both buttons must be the same size and equally easy to click
@@ -585,8 +596,8 @@ For small business brochure sites, implement this as two clear options rather th
 **Blocking behaviour — this is the critical part:**
 - All tracking scripts (GA4, GTM, Meta Pixel, any others) must be placed inside the CookieBanner.astro component, not in Layout.astro
 - On first visit — show the banner, do not load any tracking scripts
-- If visitor clicks Accept — load Analytics and Marketing scripts, save cookie_consent=accepted to localStorage, hide the banner
-- If visitor clicks Reject — do not load Analytics or Marketing scripts, save cookie_consent=rejected to localStorage, hide the banner
+- If visitor clicks Accept — load all consented scripts, save preferences to localStorage, hide the banner
+- If visitor clicks Reject — do not load any non-necessary scripts, save cookie_consent=rejected to localStorage, hide the banner
 - On every subsequent page load — check localStorage first. If accepted, load tracking silently. If rejected, load nothing. If no value, show the banner again
 - Never load tracking scripts before checking localStorage — even for a fraction of a second
 
