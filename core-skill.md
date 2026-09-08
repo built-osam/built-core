@@ -44,6 +44,21 @@ These rules apply to every build. The target build time is 30 to 45 minutes maxi
 
 **The designer will catch visual issues. Your job is to build fast and hand over.**
 
+## THE THREE STAGES — BUILD, AMEND, PUSH
+
+Every build and every amend follows the same three stages, in this order, and each one only happens on its own trigger. Do not collapse them, do not skip ahead, and never assume completing one stage means the next should follow automatically.
+
+**Stage 1 — Build Local**
+Build or edit the site on the local machine only. This happens when the designer gives a brief or asks for a build. Never run `git push`, `gh repo create ... --push`, or any command that pushes to GitHub as part of this stage, even after `npm run build` completes successfully and the handover summary is written.
+
+**Stage 2 — Local Amends**
+After the designer reviews and sends feedback, make the requested changes locally. This only happens when the designer prompts it — never loop back and amend anything unprompted. Still no push at this stage, no matter how many rounds of amends happen.
+
+**Stage 3 — Push to GitHub**
+Only push when the designer explicitly says so, using words to that effect — "push to github", "push it", "send it up" or similarly direct instruction. A successful build, a completed amend, or a finished handover summary are never triggers to push on their own. If it isn't clear whether "push" was actually meant, ask before running it rather than assuming.
+
+Once told to push, follow the GitHub Push process in Section 10 exactly.
+
 ---
 
 ## SECTION 1 — HOW TO READ THE BRIEF
@@ -99,9 +114,13 @@ The hero must contain all of the following:
 - A strong, relevant full width background image (see Section 7 for image sourcing)
 - A clear H1 headline — the business name or primary service and location
 - A short subheadline — one sentence on what they do and who they serve
-- A contact form (see Section 8 for form spec)
 - A primary CTA button — e.g. "Get a Free Quote" or "Call Us Today"
 - Google Reviews badge — if review count and link are provided in the brief
+
+**Hero contact form — trades only, not every business.**
+Only include a full contact form in the hero for trade and callout-based businesses where an immediate enquiry matters most — plumbers, electricians, drainage, roofers, locksmiths, pest control, appliance repair, and similar. For these, the form sits in the hero alongside the CTA button, per Section 8.
+
+For every other business type — retail, professional services (solicitors, accountants), hospitality, clinics, agencies, and so on — do not put a form in the hero. Use the CTA button alone, linking through to the contact page or a booking flow if one exists. If it's genuinely unclear which category a business falls into, default to CTA button only, no hero form, and flag it for the designer to confirm.
 
 **Google Reviews Badge**
 - Display as: ⭐⭐⭐⭐⭐ [Review Count] Five Star Reviews on Google
@@ -125,7 +144,8 @@ If a logo is provided as a PNG with a transparent background — set the nav to 
 Before moving on, confirm:
 - [ ] Phone bar visible at the very top
 - [ ] Nav with logo and links below phone bar
-- [ ] Hero with H1, subheadline, contact form, CTA, and Google badge (if applicable)
+- [ ] Hero with H1, subheadline, CTA, and Google badge (if applicable)
+- [ ] Hero contact form present only if this is a trade/callout business — CTA button only otherwise
 - [ ] Everything visible on desktop without scrolling
 - [ ] Mobile version stacks cleanly
 - [ ] Logo background colour matches nav background — no dropped-in effect
@@ -750,7 +770,9 @@ The form submission script must:
 Use exactly this wording. Do not add "Your details are only used to reply to your enquiry" or any other text. Do not remove the spaces before the links.
 
 ### Hero Form
-The hero contact form is a condensed version of the standard form.
+Only build a hero form for trade and callout-based businesses — see the Hero Section rule in Section 2 for exactly which businesses qualify. For every other business type, skip this entirely and use a CTA button in the hero instead.
+
+Where it does apply, the hero contact form is a condensed version of the standard form.
 Same fields but styled to sit within the hero section without overwhelming it.
 On mobile — the form stacks below the hero text.
 Include all hidden fields on the hero form as well as the main contact form.
@@ -963,9 +985,11 @@ Every site must achieve before launch:
 - No render-blocking scripts
 - CSS and JS minified
 
-### GitHub Push — End of Every Build
+### GitHub Push — Only When Explicitly Instructed
 
-**The order is non-negotiable: GitHub first, Cloudflare second. Always.**
+**Do not run this section automatically. Only follow these steps once the designer has explicitly said to push — see "The Three Stages" near the top of this file. Finishing a build or finishing a round of amends is never, on its own, a reason to push.**
+
+**Once instructed to push: the order is non-negotiable, GitHub first, Cloudflare second. Always.**
 
 **NEVER use `wrangler pages deploy` or any direct upload method. Cloudflare must connect to the GitHub repo and build from it. Direct uploads bypass GitHub entirely, break the amend process, remove rollback capability, and mean no one else can ever pick up the work.**
 
@@ -1083,7 +1107,9 @@ Check only:
 Flag anything that fails in the handover summary. The designer will review the rest.
 
 ### Post-Amend Push Process
-After every round of amends — whether during the build review or after the site is live — always push changes to GitHub immediately. Cloudflare Pages will redeploy automatically within 60 seconds.
+After a round of amends — whether during the build review or after the site is live — make the changes locally and stop. Do not push automatically, even if the site is already live and connected to Cloudflare. Only push once the designer explicitly instructs it, per "The Three Stages" near the top of this file.
+
+Once instructed to push:
 
 ```bash
 git add .
@@ -1091,9 +1117,9 @@ git commit -m "Amends — [brief description of what changed]"
 git push
 ```
 
-Do this after every single set of amends. Never leave changes sitting locally without pushing.
+If a live site is already connected to Cloudflare Pages, this push triggers an automatic redeploy within about 60 seconds. If it isn't connected yet, this is just the push, the Cloudflare connection steps still apply separately.
 
-If the designer asks for further changes after the initial push, apply all changes, then run the same three commands above. The pages.dev link and live domain will both update automatically.
+If the designer asks for further changes after an earlier push, apply all changes locally, then wait for the next explicit instruction to push before running the commands above again.
 
 ### Pre-Launch Checklist
 - [ ] All pages present and URLs match brief / original exactly
@@ -1109,7 +1135,7 @@ If the designer asks for further changes after the initial push, apply all chang
 - [ ] Carbon Copy builds only — take full page screenshots of every page at desktop (1440px) and mobile (390px) and compare against the original site. Layout, spacing, copy, and images must match. This is non-negotiable for Carbon Copy builds.
 - [ ] Tested across full browser/device matrix
 - [ ] Phone bar visible on every page
-- [ ] Hero contains form, CTA, and Google badge (if applicable)
+- [ ] Hero contains CTA and Google badge (if applicable), plus a contact form only if this is a trade/callout business
 - [ ] Contact form submits and email received correctly
 - [ ] Thank you page displays after form submission
 - [ ] Google Maps displays on contact page
