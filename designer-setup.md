@@ -9,8 +9,9 @@
 You will need:
 - Your Claude Code account credentials (provided by Charlie)
 - Your GitHub username (provided by Charlie — you should have received an invite to built-osam)
-- Your Cloudflare login details (provided by Charlie)
 - 15 to 20 minutes
+
+**You do not need any Cloudflare login on this machine.** Cloudflare Pages connects directly to the GitHub repo once a project is set up, it isn't something individual designers authenticate into. GitHub is the only account this setup needs.
 
 ---
 
@@ -105,35 +106,7 @@ If not installed:
 brew install node
 ```
 
-### 6. Install Wrangler
-
-```bash
-sudo npm install -g wrangler
-```
-
-Enter your Mac password when prompted.
-
-Verify:
-```bash
-wrangler --version
-```
-
-### 7. Authenticate Wrangler with Cloudflare
-
-```bash
-wrangler login
-```
-
-A browser window will open. Log in with the OSAM Cloudflare account credentials provided by Charlie. Click Allow.
-
-Verify:
-```bash
-wrangler whoami
-```
-
-You should see the OSAM Cloudflare account name.
-
-### 8. Save the skill file URL
+### 6. Save the skill file URL
 
 Save this URL — it goes at the start of every build prompt:
 
@@ -141,7 +114,7 @@ Save this URL — it goes at the start of every build prompt:
 https://raw.githubusercontent.com/built-osam/built-core/main/core-skill.md
 ```
 
-### 9. Mac Setup — Final Connection Test
+### 7. Mac Setup — Final Connection Test
 
 Run each of these checks one at a time and confirm each one passes before moving on:
 
@@ -157,12 +130,6 @@ gh repo list built-osam --limit 3
 ```
 Expected: A list of repositories. If you see a permissions error, tell Charlie.
 
-**Cloudflare via Wrangler:**
-```bash
-wrangler whoami
-```
-Expected: The OSAM Cloudflare account name.
-
 **Node.js:**
 ```bash
 node --version
@@ -177,7 +144,7 @@ Expected: The first few lines of the skill file. If you see a 404 or error, tell
 
 **All passing? Run this full check:**
 ```bash
-echo "=== GitHub ===" && gh auth status && echo "=== built-osam access ===" && gh repo list built-osam --limit 3 && echo "=== Cloudflare ===" && wrangler whoami && echo "=== Node ===" && node --version && echo "=== Skill file ===" && curl -s https://raw.githubusercontent.com/built-osam/built-core/main/core-skill.md | head -3 && echo "=== ALL CHECKS PASSED - READY TO BUILD ==="
+echo "=== GitHub ===" && gh auth status && echo "=== built-osam access ===" && gh repo list built-osam --limit 3 && echo "=== Node ===" && node --version && echo "=== Skill file ===" && curl -s https://raw.githubusercontent.com/built-osam/built-core/main/core-skill.md | head -3 && echo "=== ALL CHECKS PASSED - READY TO BUILD ==="
 ```
 
 If every section returns a result without errors, setup is complete. Tell Charlie you are ready.
@@ -258,33 +225,7 @@ After installation, close and reopen PowerShell, then verify:
 node --version
 ```
 
-### 6. Install Wrangler
-
-```
-npm install -g wrangler
-```
-
-Verify:
-```
-wrangler --version
-```
-
-### 7. Authenticate Wrangler with Cloudflare
-
-```
-wrangler login
-```
-
-A browser window will open. Log in with the OSAM Cloudflare account credentials provided by Charlie. Click Allow.
-
-Verify:
-```
-wrangler whoami
-```
-
-You should see the OSAM Cloudflare account name.
-
-### 8. Save the skill file URL
+### 6. Save the skill file URL
 
 Save this URL somewhere easy to access — it goes at the start of every build prompt:
 
@@ -292,7 +233,7 @@ Save this URL somewhere easy to access — it goes at the start of every build p
 https://raw.githubusercontent.com/built-osam/built-core/main/core-skill.md
 ```
 
-### 9. Windows Setup — Final Connection Test
+### 7. Windows Setup — Final Connection Test
 
 Run each of these checks one at a time and confirm each one passes before moving on:
 
@@ -308,12 +249,6 @@ gh repo list built-osam --limit 3
 ```
 Expected: A list of repositories. If you see a permissions error, tell Charlie.
 
-**Cloudflare via Wrangler:**
-```
-wrangler whoami
-```
-Expected: The OSAM Cloudflare account name.
-
 **Node.js:**
 ```
 node --version
@@ -328,7 +263,7 @@ Expected: The skill file content appears. If you see a 404 or error, tell Charli
 
 **All passing? Run this full check:**
 ```
-echo "=== GitHub ===" && gh auth status && echo "=== built-osam access ===" && gh repo list built-osam --limit 3 && echo "=== Cloudflare ===" && wrangler whoami && echo "=== Node ===" && node --version && echo "=== ALL CHECKS PASSED - READY TO BUILD ==="
+echo "=== GitHub ===" && gh auth status && echo "=== built-osam access ===" && gh repo list built-osam --limit 3 && echo "=== Node ===" && node --version && echo "=== ALL CHECKS PASSED - READY TO BUILD ==="
 ```
 
 If every section returns a result without errors, setup is complete. Tell Charlie you are ready.
@@ -356,3 +291,9 @@ Read the skill file at https://raw.githubusercontent.com/built-osam/built-core/m
 
 [paste completed brief here]
 ```
+
+---
+
+## A NOTE ON DEPLOYMENT
+
+This machine only ever pushes to GitHub, and only when explicitly told to (see the Three Stages rule in the build skill file — build, amend, push are separate steps, push never happens automatically). Once a repo is pushed, getting it live on Cloudflare Pages is a one-time setup done through the Cloudflare dashboard connecting directly to the GitHub repo, not something run from this machine. That step is covered separately and doesn't require anything installed here.
