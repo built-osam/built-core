@@ -44,21 +44,6 @@ These rules apply to every build. The target build time is 30 to 45 minutes maxi
 
 **The designer will catch visual issues. Your job is to build fast and hand over.**
 
-## THE THREE STAGES — BUILD, AMEND, PUSH
-
-Every build and every amend follows the same three stages, in this order, and each one only happens on its own trigger. Do not collapse them, do not skip ahead, and never assume completing one stage means the next should follow automatically.
-
-**Stage 1 — Build Local**
-Build or edit the site on the local machine only. This happens when the designer gives a brief or asks for a build. Never run `git push`, `gh repo create ... --push`, or any command that pushes to GitHub as part of this stage, even after `npm run build` completes successfully and the handover summary is written.
-
-**Stage 2 — Local Amends**
-After the designer reviews and sends feedback, make the requested changes locally. This only happens when the designer prompts it — never loop back and amend anything unprompted. Still no push at this stage, no matter how many rounds of amends happen.
-
-**Stage 3 — Push to GitHub**
-Only push when the designer explicitly says so, using words to that effect — "push to github", "push it", "send it up" or similarly direct instruction. A successful build, a completed amend, or a finished handover summary are never triggers to push on their own. If it isn't clear whether "push" was actually meant, ask before running it rather than assuming.
-
-Once told to push, follow the GitHub Push process in Section 10 exactly.
-
 ---
 
 ## SECTION 1 — HOW TO READ THE BRIEF
@@ -114,13 +99,9 @@ The hero must contain all of the following:
 - A strong, relevant full width background image (see Section 7 for image sourcing)
 - A clear H1 headline — the business name or primary service and location
 - A short subheadline — one sentence on what they do and who they serve
+- A contact form (see Section 8 for form spec)
 - A primary CTA button — e.g. "Get a Free Quote" or "Call Us Today"
 - Google Reviews badge — if review count and link are provided in the brief
-
-**Hero contact form — trades only, not every business.**
-Only include a full contact form in the hero for trade and callout-based businesses where an immediate enquiry matters most — plumbers, electricians, drainage, roofers, locksmiths, pest control, appliance repair, and similar. For these, the form sits in the hero alongside the CTA button, per Section 8.
-
-For every other business type — retail, professional services (solicitors, accountants), hospitality, clinics, agencies, and so on — do not put a form in the hero. Use the CTA button alone, linking through to the contact page or a booking flow if one exists. If it's genuinely unclear which category a business falls into, default to CTA button only, no hero form, and flag it for the designer to confirm.
 
 **Google Reviews Badge**
 - Display as: ⭐⭐⭐⭐⭐ [Review Count] Five Star Reviews on Google
@@ -144,8 +125,7 @@ If a logo is provided as a PNG with a transparent background — set the nav to 
 Before moving on, confirm:
 - [ ] Phone bar visible at the very top
 - [ ] Nav with logo and links below phone bar
-- [ ] Hero with H1, subheadline, CTA, and Google badge (if applicable)
-- [ ] Hero contact form present only if this is a trade/callout business — CTA button only otherwise
+- [ ] Hero with H1, subheadline, contact form, CTA, and Google badge (if applicable)
 - [ ] Everything visible on desktop without scrolling
 - [ ] Mobile version stacks cleanly
 - [ ] Logo background colour matches nav background — no dropped-in effect
@@ -770,9 +750,7 @@ The form submission script must:
 Use exactly this wording. Do not add "Your details are only used to reply to your enquiry" or any other text. Do not remove the spaces before the links.
 
 ### Hero Form
-Only build a hero form for trade and callout-based businesses — see the Hero Section rule in Section 2 for exactly which businesses qualify. For every other business type, skip this entirely and use a CTA button in the hero instead.
-
-Where it does apply, the hero contact form is a condensed version of the standard form.
+The hero contact form is a condensed version of the standard form.
 Same fields but styled to sit within the hero section without overwhelming it.
 On mobile — the form stacks below the hero text.
 Include all hidden fields on the hero form as well as the main contact form.
@@ -819,48 +797,17 @@ This must appear on every site, on every page, below the footer. Do not style it
 
 ## SECTION 10 — TECHNICAL STANDARDS
 
-### GitHub & Cloudflare Naming Convention
-
-**One rule, applied consistently everywhere: strip the TLD, keep everything else, always prefix the repo with `client-`.**
-
-Take the client's domain, remove the extension entirely (`.co.uk`, `.com`, `.org`, `.net`, whatever it is), and don't substitute it with anything, don't hyphenate it in. What's left is the slug used for both the GitHub repo and the Cloudflare Pages project name.
-
-| | Value |
-|---|---|
-| Client domain | `leeverityupholsteryservice.co.uk` |
-| Slug (domain, TLD stripped) | `leeverityupholsteryservice` |
-| GitHub repo | `client-leeverityupholsteryservice` |
-| Cloudflare Pages project name | `leeverityupholsteryservice` |
-| Live pages.dev URL | `leeverityupholsteryservice.pages.dev` |
-
-Another example:
-
-| | Value |
-|---|---|
-| Client domain | `plastererdorking.co.uk` |
-| Slug (domain, TLD stripped) | `plastererdorking` |
-| GitHub repo | `client-plastererdorking` |
-| Cloudflare Pages project name | `plastererdorking` |
-
-**Rules:**
-- GitHub repo = `client-` + slug. Always.
-- Cloudflare Pages project name = slug only, no `client-` prefix. This is what sets the `pages.dev` subdomain.
-- If the domain already contains hyphens (e.g. `more-sleep-more-smiles.com`), leave them exactly as they are — just drop the TLD.
-- Never append the TLD as a hyphenated suffix (e.g. `-co-uk`). That was an earlier inconsistency in this file and is now retired — don't use it on new builds.
-- Never invent a shortened or abbreviated version of the domain for either name. The slug is always the domain with only the TLD removed.
-
 ### Astro Project Setup
 ```bash
-npm create astro@latest client-[slug]
-cd client-[slug]
+npm create astro@latest [client-name]-website
+cd [client-name]-website
 npm install
 npm install @astrojs/sitemap
 ```
-Example: for `leeverityupholsteryservice.co.uk`, run `npm create astro@latest client-leeverityupholsteryservice`.
 
 ### File Structure
 ```
-client-[slug]/
+[client-name]-website/
 ├── public/
 │   ├── images/
 │   ├── favicon.ico         (32x32px, generated from logo)
@@ -985,19 +932,15 @@ Every site must achieve before launch:
 - No render-blocking scripts
 - CSS and JS minified
 
-### GitHub Push — Only When Explicitly Instructed
+### GitHub Push — End of Every Build
 
-**Do not run this section automatically. Only follow these steps once the designer has explicitly said to push — see "The Three Stages" near the top of this file. Finishing a build or finishing a round of amends is never, on its own, a reason to push.**
-
-**Once instructed to push: the order is non-negotiable, GitHub first, Cloudflare second. Always.**
+**The order is non-negotiable: GitHub first, Cloudflare second. Always.**
 
 **NEVER use `wrangler pages deploy` or any direct upload method. Cloudflare must connect to the GitHub repo and build from it. Direct uploads bypass GitHub entirely, break the amend process, remove rollback capability, and mean no one else can ever pick up the work.**
 
 **If anything prevents the GitHub push — STOP. Tell the designer what the problem is. Do not find a workaround. Do not deploy to Cloudflare. Do not continue.**
 
 The GitHub organisation is **built-osam**. Not osam-websites. Not any other name. Always built-osam.
-
-**Repo naming:** see "GitHub & Cloudflare Naming Convention" above. Strip the TLD from the client domain, prefix with `client-`. Do not use the old `-co-uk` suffix style on new builds.
 
 **Step 1 — Install GitHub CLI if not present**
 ```bash
@@ -1013,9 +956,9 @@ When prompted: select GitHub.com, HTTPS, log in via browser.
 
 **Step 3 — Create the private repo in built-osam and push**
 ```bash
-gh repo create built-osam/client-[slug] --private --source=. --remote=origin --push
+gh repo create built-osam/client-[domain] --private --source=. --remote=origin --push
 ```
-Replace [slug] with the client domain with the TLD removed, e.g. for `plastererdorking.co.uk` this is `gh repo create built-osam/client-plastererdorking --private --source=. --remote=origin --push`
+Replace [domain] with the client domain e.g. `client-plastererdorking.co.uk`
 
 If the repo already exists:
 ```bash
@@ -1026,28 +969,21 @@ git push -u origin main
 
 **Step 4 — Tell the designer**
 Once pushed, output:
-- The GitHub repo URL: https://github.com/built-osam/client-[slug]
+- The GitHub repo URL: https://github.com/built-osam/client-[domain]
 - The Cloudflare Pages connection steps below
 - Any items from the handover summary that need attention
 
 **Step 5 — Cloudflare Pages connection (designer does this)**
+1. Cloudflare dashboard — Workers & Pages — Create — Pages — Connect to Git
+2. Authorise built-osam organisation
+3. Select the client repo e.g. client-more-sleep-more-smiles
+4. Project name: [domain without client- prefix] e.g. more-sleep-more-smiles — this sets the pages.dev URL
+5. Build command: `npm run build`
+6. Output directory: `dist`
+7. Production branch: `main`
+8. Click Save and Deploy — pages.dev link generated automatically
 
-Cloudflare's dashboard defaults new projects into a Workers-style flow (a "Deploy command" box). Do not use that flow — it creates a Worker project rather than a proper Pages project. Instead:
-
-1. Workers & Pages → Create application
-2. On "Make something new", scroll to the bottom and click **Continue to Pages** (labelled "legacy Pages workflow")
-3. **Get started** under Import an existing Git repository
-4. Select the client repo e.g. `client-plastererdorking`
-5. Project name: the slug only, no `client-` prefix, e.g. `plastererdorking` — this sets the pages.dev URL
-6. Framework preset: Astro, if listed (auto-detected)
-7. Build command: `npm run build`
-8. Build output directory: `dist`
-9. Production branch: `main`
-10. Click Save and Deploy — pages.dev link generated automatically
-
-No deploy command field, no API token needed on this path. Every future push to GitHub triggers an automatic redeploy. This is the only correct deployment method.
-
-Signs you've landed on the wrong (Workers-style) screen instead: a "Deploy command" field containing `npx wrangler deploy`, an "API token" dropdown, or a "Non-production branch deploy command" field under Advanced settings. Back out and use "Continue to Pages" rather than trying to fix it in place — fields like Build output directory don't exist on that path.
+Every future push to GitHub triggers an automatic redeploy. This is the only correct deployment method.
 
 ### 301 Redirect Audit — All Build Types
 Before building any site — Carbon Copy, Modernise, or New Build — crawl the existing live site to find every URL that currently resolves. Do not rely on the sitemap alone — WordPress and other CMS platforms generate URLs that get indexed but never appear in sitemaps (category pages, tag pages, author pages, old campaign pages, paginated pages, duplicate contact pages etc).
@@ -1077,7 +1013,7 @@ Use a tool like Screaming Frog, Sitebulb, or the following curl-based approach t
 Add a checklist item: all crawled URLs from the old site either exist in the new build or have a 301 redirect in `_redirects`.
 
 ### Cloudflare Pages Deployment
-- Connect GitHub repo to Cloudflare Pages (see Step 5 above — always via "Continue to Pages", never the Workers-style flow)
+- Connect GitHub repo to Cloudflare Pages
 - Build command: `npm run build`
 - Output directory: `dist`
 - Deploy and share the pages.dev preview link with the client before pointing the domain
@@ -1107,9 +1043,7 @@ Check only:
 Flag anything that fails in the handover summary. The designer will review the rest.
 
 ### Post-Amend Push Process
-After a round of amends — whether during the build review or after the site is live — make the changes locally and stop. Do not push automatically, even if the site is already live and connected to Cloudflare. Only push once the designer explicitly instructs it, per "The Three Stages" near the top of this file.
-
-Once instructed to push:
+After every round of amends — whether during the build review or after the site is live — always push changes to GitHub immediately. Cloudflare Pages will redeploy automatically within 60 seconds.
 
 ```bash
 git add .
@@ -1117,9 +1051,9 @@ git commit -m "Amends — [brief description of what changed]"
 git push
 ```
 
-If a live site is already connected to Cloudflare Pages, this push triggers an automatic redeploy within about 60 seconds. If it isn't connected yet, this is just the push, the Cloudflare connection steps still apply separately.
+Do this after every single set of amends. Never leave changes sitting locally without pushing.
 
-If the designer asks for further changes after an earlier push, apply all changes locally, then wait for the next explicit instruction to push before running the commands above again.
+If the designer asks for further changes after the initial push, apply all changes, then run the same three commands above. The pages.dev link and live domain will both update automatically.
 
 ### Pre-Launch Checklist
 - [ ] All pages present and URLs match brief / original exactly
@@ -1135,7 +1069,7 @@ If the designer asks for further changes after an earlier push, apply all change
 - [ ] Carbon Copy builds only — take full page screenshots of every page at desktop (1440px) and mobile (390px) and compare against the original site. Layout, spacing, copy, and images must match. This is non-negotiable for Carbon Copy builds.
 - [ ] Tested across full browser/device matrix
 - [ ] Phone bar visible on every page
-- [ ] Hero contains CTA and Google badge (if applicable), plus a contact form only if this is a trade/callout business
+- [ ] Hero contains form, CTA, and Google badge (if applicable)
 - [ ] Contact form submits and email received correctly
 - [ ] Thank you page displays after form submission
 - [ ] Google Maps displays on contact page
