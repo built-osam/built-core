@@ -56,16 +56,37 @@ Rebuild the existing website exactly as it is. Same design, same layout, same co
 Screenshots: do not take screenshots during the build. Once all pages are built and npm run build completes, take screenshots of key pages — homepage, one service page, contact page — at desktop and mobile to verify the layout before handover. For Carbon Copy builds, compare every page against the original.
 
 **Modernise & Amend**
-Keep the overall style and brand familiar but update the design to feel current. Apply all specific amends listed in the brief. Read the design call notes carefully — they take priority over your own design decisions. If example websites are provided, study them and take direction from their layout, feel, and structure.
+Keep the overall style and brand familiar but update the design to feel current. Apply all specific amends listed in the brief. Read the design call notes carefully — they take priority over your own design decisions. If example websites are provided, follow the Example Websites instructions below.
 
 **New Build**
-No existing website to reference. Build entirely from the brief and design call notes. Make design decisions based on the brand colours, industry, and any example websites provided.
+No existing website to reference. Build entirely from the brief and design call notes. Make design decisions based on the brand colours, industry, and any example websites provided. If example websites are provided, follow the Example Websites instructions below.
+
+### Example Websites — How to Use Them
+
+If one or more example websites are provided in the brief, this is the most important design reference. Do not treat it as loose inspiration. Treat it as a blueprint.
+
+**Before writing a single line of code:**
+
+1. Open every example URL in the brief
+2. Analyse the layout in detail — section order, spacing, typography scale, component structure, hero layout, how services are presented, how CTAs are placed, footer structure
+3. Note specifically: how the hero is built, how services are displayed, how the navigation is structured, what the overall feel and density of the page is
+4. Build to match that layout and structure as closely as possible
+
+**The only things that change from the example:**
+- Colours — use the client's base, secondary and accent colours from the brief
+- Logo and branding
+- Content — use the client's services, copy and images
+- Business details — name, phone, email, address, areas
+
+Everything else — layout, section order, component style, spacing, typography scale, visual weight — should match the example site as closely as possible.
+
+Do not start building until you have opened and analysed every example URL. If an example URL does not load, flag it to the designer before proceeding. Do not skip this step or leave it until later.
 
 ### Priority Order
 When instructions conflict, follow this order:
 1. Specific amends listed in the brief — always highest priority
 2. Design call notes
-3. Example websites provided
+3. Example websites provided — treated as a layout blueprint, not optional inspiration
 4. OSAM design standards in this skill file
 5. Claude's own design judgment — lowest priority, only used when nothing else applies
 
