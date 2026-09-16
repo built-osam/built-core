@@ -103,7 +103,8 @@ A thin bar at the very top of the page — above the navigation.
 - Display Email address
 - Background should be the base colour or a dark contrasting colour
 - Text should be white or light coloured
-- Keep it simple — phone icon, number, email icon, address. No extra content.
+- Never include the address in the phone bar or navigation contact strip — the address belongs in the footer only
+- On mobile, show the primary phone number only. Do not show email or secondary phone in the phone bar on mobile — it becomes too cluttered.
 - Every phone number, here and anywhere else on the site (footer, contact page), must be wrapped in a `tel:` link using full international format, e.g. `<a href="tel:+441234567890">01234 567890</a>` — so mobile users can tap to call directly.
 
 ### Navigation
@@ -204,6 +205,7 @@ Every homepage must contain in this order:
 3. Hero with form, CTA, and Google badge
 4. About / Introduction section — short paragraph about the business, 2-3 sentences
 5. Services section — grid or cards showing all main services with icons or images
+**Service card grids must always use equal columns.** Three cards per row on desktop, two on tablet, one on mobile. Never use asymmetric bento or mixed-span layouts for service cards. Always check the arithmetic before rendering: 6 cards at 3-columns = 2 clean rows. 6 cards at mixed spans = broken layout with orphaned elements. The design audit skill warning about equal column grids does not apply to service card sections. Equal columns are the correct answer here.
 6. Why Choose Us / Trust signals — key selling points, years in business, qualifications
 7. Testimonials section — if client has provided testimonials or Google reviews
 8. Areas Covered section — list of towns and regions served
@@ -537,6 +539,19 @@ Never add `user-scalable=no`, `user-scalable=0`, or `maximum-scale=1`. This fail
 - All images must have descriptive alt text — already in Section 7
 - Decorative images only (purely visual, no information) use `alt=""`
 
+### Gallery Lightbox — Mandatory
+If any page on the site contains a gallery or image grid — even an inner service page — a lightbox must be built. No exceptions.
+
+Requirements:
+- Clicking any image opens it full screen
+- Close button visible in the top right
+- Previous and next navigation arrows
+- Keyboard support: Escape to close, left/right arrow keys to navigate
+- Background overlay dims the page behind the image
+- Build as self-contained vanilla JavaScript — no external libraries required
+
+Test the lightbox before handover. Open it, navigate through images, close it, and verify keyboard controls work.
+
 ### Semantic HTML
 Use correct HTML elements throughout:
 - `<nav>` for navigation
@@ -572,6 +587,30 @@ Add `id="main-content"` to the `<main>` element.
 
 ### Focus Indicators
 Never remove focus outlines with `outline: none` unless replacing with a clearly visible custom focus style. Every interactive element (links, buttons, inputs) must show a visible focus indicator when tabbed to.
+
+### Mobile Navigation — Mandatory CSS Pattern
+Mobile navigation panels must always use the following CSS pattern. Never use a plain breakpoint `display: block` on the panel element — this overrides the browser's `[hidden]` stylesheet rule and pins the menu open.
+
+**Correct pattern:**
+```css
+/* Panel is hidden by default via the [hidden] attribute */
+/* Only show it when [hidden] is absent */
+.nav-panel:not([hidden]) {
+  display: block;
+}
+```
+
+**Never do this:**
+```css
+/* WRONG — author CSS beats [hidden], menu stays open */
+@media (max-width: 1040px) {
+  .nav-panel {
+    display: block;
+  }
+}
+```
+
+The `[hidden]` HTML attribute must be the single source of truth for panel visibility. JavaScript toggles the attribute — CSS only responds to its presence or absence. This is the only pattern that guarantees the menu closes reliably across all browsers. Always test the mobile menu open and close before handover.
 
 ### Icon-Only Buttons
 Any button or link that uses only an icon (no text) must have an aria-label:
@@ -776,6 +815,13 @@ Same fields but styled to sit within the hero section without overwhelming it.
 On mobile — the form stacks below the hero text.
 Include all hidden fields on the hero form as well as the main contact form.
 
+**Hero form — only for trade and service businesses:**
+A contact form in the hero section is only appropriate where an immediate quote or callout request is the primary action. This includes: plumbers, electricians, roofers, builders, drainage engineers, landscapers, cleaners, garages, pest control, locksmiths, and similar trade or emergency service businesses.
+
+Do NOT add a hero form to: retail, ecommerce, restaurants, cafes, hospitality, schools, nurseries, accountants, solicitors, estate agents, or any business where a quote request is not the natural first action for a new visitor.
+
+If in doubt — no hero form. Use a CTA button linking to the contact page instead. A misplaced hero form looks desperate and reduces trust.
+
 ---
 
 ## SECTION 9 — FOOTER
@@ -825,6 +871,22 @@ cd [client-name]-website
 npm install
 npm install @astrojs/sitemap
 ```
+
+**astro.config.mjs — mandatory setting:**
+Always set `compressHTML: false` in astro.config.mjs. This must be present on every build without exception.
+
+```js
+import { defineConfig } from 'astro/config'
+import sitemap from '@astrojs/sitemap'
+
+export default defineConfig({
+  site: 'https://[client-domain]',
+  compressHTML: false,
+  integrations: [sitemap()],
+})
+```
+
+Why: `compressHTML: true` (the Astro default) strips whitespace between text nodes and inline elements in the production build. This causes words and inline links to run together — the word before a link and the link text merge with no space. It also breaks the required spaces in the reCAPTCHA notice beneath every form, which is a compliance issue. This bug only appears in production, never in dev, so it will not be caught during local review. Setting `compressHTML: false` prevents it entirely at zero meaningful cost — Cloudflare gzips the output at the edge anyway.
 
 ### File Structure
 ```
