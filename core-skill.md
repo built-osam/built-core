@@ -314,7 +314,8 @@ Every site must resolve to exactly one canonical form of every URL — never let
 - New Build: default to the non-www apex domain (`example.com`, not `www.example.com`) with a trailing slash on every URL (matches the slug format above). Only deviate if the client specifically requests `www`.
 
 **Enforcing it:**
-- Set up a Cloudflare redirect (Bulk Redirect or Redirect Rule) sending the non-canonical variant (the `www` version if apex is canonical, or vice versa) to the canonical one with a 301.
+- In the Vercel project (Settings → Domains), add both the apex and `www` domains and set the non-canonical one (the `www` version if apex is canonical, or vice versa) to redirect to the canonical one with a 301.
+- Set `trailingSlash` in `vercel.json` to match the convention (`true` for trailing slashes, `false` for none) and set the same in `astro.config.mjs` (`trailingSlash: 'always'` or `'never'`).
 - Add a self-referencing canonical tag to every page in `Layout.astro`, matching the exact canonical URL (protocol, domain, trailing slash):
 ```html
 <link rel="canonical" href="https://[canonical-domain]/[exact-path]/" />
@@ -324,10 +325,15 @@ Every site must resolve to exactly one canonical form of every URL — never let
 If the brief requires restructuring URLs that are already live and indexed, don't just drop the old ones:
 1. Before building, pull the full list of existing indexed URLs — from the current `sitemap.xml`, or a quick crawl of the live site if no sitemap exists.
 2. Build a redirect map: every old URL that changes → its new equivalent.
-3. Implement the redirects in a `public/_redirects` file (Cloudflare Pages reads this natively) — one line per redirect, using a `301` status:
+3. Implement the redirects in the `redirects` array of `vercel.json` in the project root (Vercel reads this natively). Do NOT use a `public/_redirects` file — that is a Cloudflare Pages feature and Vercel ignores it. One entry per redirect, with an explicit `301` status:
+```json
+{
+  "redirects": [
+    { "source": "/old-path/", "destination": "/new-path/", "statusCode": 301 }
+  ]
+}
 ```
-/old-path/  /new-path/  301
-```
+Use `"statusCode": 301` rather than `"permanent": true` (which sends a 308).
 4. Every redirect must be a 301 (permanent), never a 302.
 5. Test each redirect after deploy — old URL should land on the new page, not a 404.
 
@@ -756,58 +762,111 @@ Services in the dropdown come from the brief — use the services listed under P
 ### Additional Custom Fields
 If the brief requests any other custom fields — e.g. preferred callback time, property type, postcode — add them between the standard fields in a logical order. Always mark them as required unless the brief says otherwise.
 
-### Form Submission
-- Forms submit to the Cloudflare Worker at: https://built-form-worker.cloudflare-fe2.workers.dev
+### Form Submission & Spam Protection — Cloudflare Turnstile (NOT Google reCAPTCHA)
+- Forms submit to the OSAM form Worker at: https://built-form-worker.cloudflare-fe2.workers.dev
 - This Worker URL is fixed — use it on every site, do not change it
-- reCAPTCHA v3 site key: 6LeFXaktAAAAAL3wr1j-29JzkfAC_hIuf5xabQ3l
-- This site key is fixed — use it on every site, do not change it
 - On successful submission — redirect to /thank-you/
 - Create a /thank-you/ page matching the site design with a friendly confirmation message
-- reCAPTCHA v3 runs invisibly in the background — no checkbox shown to the user
 - Honeypot field added to every form for additional spam protection
 
-Do NOT add the reCAPTCHA script to Layout.astro. Loading it globally adds ~771ms to every page including pages with no form.
+All OSAM sites use Cloudflare Turnstile through the form Worker. **Do NOT add Google reCAPTCHA** (`www.google.com/recaptcha/api.js` or `recaptcha.net`), and do not create, add or ask for any site key. There is no site key.
 
-Instead, load reCAPTCHA lazily — only on pages with a form, triggered on first interaction:
+Nothing needs registering in Cloudflare for a new site — Turnstile works on the live domain and on Vercel preview addresses (`*.vercel.app`) straight away.
+
+**1. Load the security script lazily — only on pages with a form, on first interaction**
+
+The script is: https://built-form-worker.cloudflare-fe2.workers.dev/captcha.js
+
+Do NOT add it to Layout.astro. Load it from ContactForm.astro only. It provides the same API as reCAPTCHA v3 (`grecaptcha.ready` / `grecaptcha.execute`), so the form code pattern stays the same.
 
 ```html
 <!-- Add this only inside ContactForm.astro, not Layout.astro -->
 <script>
-  let recaptchaLoaded = false
+  const WORKER_URL = 'https://built-form-worker.cloudflare-fe2.workers.dev'
+  let captchaPromise = null
 
-  function loadRecaptcha() {
-    if (recaptchaLoaded) return
-    recaptchaLoaded = true
-    const script = document.createElement('script')
-    script.src = 'https://www.google.com/recaptcha/api.js?render=6LeFXaktAAAAAL3wr1j-29JzkfAC_hIuf5xabQ3l'
-    document.head.appendChild(script)
+  function loadCaptcha() {
+    if (!captchaPromise) {
+      captchaPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = WORKER_URL + '/captcha.js'
+        script.async = true
+        script.onload = resolve
+        script.onerror = () => { captchaPromise = null; reject(new Error('captcha failed to load')) }
+        document.head.appendChild(script)
+      })
+    }
+    return captchaPromise
   }
 
   // Load on first interaction with any form field
   document.querySelectorAll('form input, form textarea, form select').forEach(el => {
-    el.addEventListener('focusin', loadRecaptcha, { once: true })
+    el.addEventListener('focusin', loadCaptcha, { once: true })
+  })
+
+  document.querySelectorAll('form.osam-form').forEach(form => {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault()
+      const button = form.querySelector('button[type="submit"]')
+      const error = form.querySelector('.osam-form__error')
+      button.disabled = true
+      if (error) error.hidden = true
+      try {
+        await loadCaptcha()
+        await new Promise(r => grecaptcha.ready(r))
+        // Fresh token for EVERY submission. No short timeout - allow at least 2 minutes,
+        // as the visitor may be asked to tick a box above the send button.
+        const token = await grecaptcha.execute('', { action: 'submit' })
+        const formData = new FormData(form)
+        formData.append('g-recaptcha-response', token)
+        const res = await fetch(WORKER_URL, { method: 'POST', body: formData })
+        if (!res.ok) throw new Error('submit failed')
+        window.location.href = '/thank-you/'
+      } catch (err) {
+        // execute() rejected or the POST failed - show the normal error message
+        if (error) error.hidden = false
+        button.disabled = false
+      }
+    })
   })
 </script>
 ```
 
 The form submission script must:
-1. Ensure reCAPTCHA is loaded before submitting
-2. Call grecaptcha.execute with the site key and action "submit"
-3. Append the token as g-recaptcha-response to the form data
-4. POST to the Worker URL
+1. Ensure captcha.js is loaded, then `await new Promise(r => grecaptcha.ready(r))`
+2. Call `grecaptcha.execute('', { action: 'submit' })` — empty string, no site key — **once for each submission** (each POST needs a fresh token; never reuse a token)
+3. Append the token as `g-recaptcha-response` to the form data
+4. POST to the Worker URL, including all hidden fields (`_site` must be the site's full URL, e.g. `https://www.example.co.uk`)
 5. On success — redirect to /thank-you/
-6. On error — show the error message without reloading the page
+6. On error, or if `execute()` rejects — show the form's normal error message ("Sorry, something went wrong - please try again or call us on [phone]") without reloading the page
 
-**reCAPTCHA notice — required under every contact form, non-negotiable:**
+Every form (hero and contact page) uses `class="osam-form"`, a `<button type="submit">`, and contains the error message element `<p class="osam-form__error" role="alert" hidden>...</p>`.
+
+**Timing:** allow at least 2 minutes for `execute()` to resolve. It is usually instant, but if Cloudflare asks the visitor to tick a box, the box appears just above the send button and waits for them. Never wrap `execute()` in a short timeout.
+
+**Never hide the Turnstile box:**
+- No `overflow: hidden` on the form or its containers (including the hero form)
+- No `display: none` / `visibility: hidden` on `.osam-captcha`
+- Leave room above the send button — don't clip or absolutely position over that area
+
+**Turnstile notice — required under the send button on every form, non-negotiable:**
 ```html
-<p class="recaptcha-notice">
-  This site is protected by reCAPTCHA and the Google
-  <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Privacy Policy</a> and
-  <a href="https://policies.google.com/terms" target="_blank" rel="noopener">Terms of Service</a> apply.
+<p class="captcha-notice">
+  This site is protected by Cloudflare Turnstile
+  (<a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener">Privacy Policy</a>).
 </p>
 ```
 
-Use exactly this wording. Do not add "Your details are only used to reply to your enquiry" or any other text. Do not remove the spaces before the links.
+Use exactly this wording. Do not add "Your details are only used to reply to your enquiry" or any other text. Do not use the old Google reCAPTCHA notice.
+
+**Content-Security-Policy:** OSAM sites don't send a CSP by default. If a site does send one, it must allow:
+```
+script-src  https://built-form-worker.cloudflare-fe2.workers.dev https://challenges.cloudflare.com
+frame-src   https://captcha.connect.osamweb.com https://challenges.cloudflare.com
+connect-src https://built-form-worker.cloudflare-fe2.workers.dev
+```
+
+**Testing:** send a real enquiry from the live site (or the vercel.app link) and confirm the email arrives.
 
 ### Hero Form
 The hero contact form is a condensed version of the standard form.
@@ -886,7 +945,7 @@ export default defineConfig({
 })
 ```
 
-Why: `compressHTML: true` (the Astro default) strips whitespace between text nodes and inline elements in the production build. This causes words and inline links to run together — the word before a link and the link text merge with no space. It also breaks the required spaces in the reCAPTCHA notice beneath every form, which is a compliance issue. This bug only appears in production, never in dev, so it will not be caught during local review. Setting `compressHTML: false` prevents it entirely at zero meaningful cost — Cloudflare gzips the output at the edge anyway.
+Why: `compressHTML: true` (the Astro default) strips whitespace between text nodes and inline elements in the production build. This causes words and inline links to run together — the word before a link and the link text merge with no space. It also breaks the required spaces in the Turnstile notice beneath every form, which is a compliance issue. This bug only appears in production, never in dev, so it will not be caught during local review. Setting `compressHTML: false` prevents it entirely at zero meaningful cost — Vercel compresses the output at the edge anyway.
 
 ### File Structure
 ```
@@ -897,9 +956,7 @@ Why: `compressHTML: true` (the Astro default) strips whitespace between text nod
 │   ├── apple-touch-icon.png (180x180px, generated from logo)
 │   ├── robots.txt
 │   ├── sitemap.xml
-│   ├── llms.txt
-│   ├── _headers
-│   └── _redirects            (only needed if URLs changed from the existing site)
+│   └── llms.txt
 ├── src/
 │   ├── components/
 │   │   ├── PhoneBar.astro
@@ -919,7 +976,10 @@ Why: `compressHTML: true` (the Astro default) strips whitespace between text nod
 │       ├── 404.astro
 │       └── services/
 │           └── [service pages]
+├── scripts/
+│   └── push-live.sh          (GitHub + Vercel deploy script, see GitHub & Vercel section)
 ├── astro.config.mjs
+├── vercel.json               (security headers, trailing slash, 301 redirects)
 └── package.json
 ```
 
@@ -986,23 +1046,36 @@ Mark both as conversions in GA4.
 
 ### API Keys & Secrets
 Not everything that looks like a key needs the same treatment:
-- **reCAPTCHA Site Key** — public, goes directly in the frontend HTML/JS.
-- **reCAPTCHA Secret Key** — never in frontend code. Lives only inside the Cloudflare Worker, used to verify the token server-side.
-- **Amazon SES credentials** — encrypted environment variables on the Cloudflare Worker only (Cloudflare dashboard or `wrangler secret put`). Never in the Astro repo, never in a committed `.env` file.
-- **Envato API key** — used locally by whoever is sourcing stock images during the build. It never touches the live site, the repo, or Cloudflare at all.
+- **Turnstile** — there is no site key to add to the site. All Turnstile configuration and the secret key live inside the OSAM form Worker. Never add a site key or secret to the Astro repo.
+- **Amazon SES credentials** — encrypted environment variables on the Cloudflare form Worker only (Cloudflare dashboard or `wrangler secret put`). Never in the Astro repo, never in a committed `.env` file.
+- **Vercel token (`VERCEL_TOKEN`) and team ID (`VERCEL_TEAM_ID`)** — environment variables on the designer's own machine only (in `~/.zshrc`). Never in the repo, never in a committed file, never printed in the handover.
+- **Envato API key** — used locally by whoever is sourcing stock images during the build. It never touches the live site, the repo, or Vercel at all.
 - **GA4 / GTM / Meta Pixel IDs** — not secrets, visible in page source regardless. Fine to hardcode in `Layout.astro`.
 Rule of thumb: if exposing it lets someone send email as the client or run up API costs, it's a secret — encrypted env var, never in git. If it's just an identifier already visible in the rendered page, hardcoding it is fine.
 
 ### Security Headers
-Add a `public/_headers` file (Cloudflare Pages reads this natively — no Worker code needed) to every site:
+Add a `vercel.json` file in the project root (not in `public/`) to every site. Vercel reads this natively. Do NOT use a `public/_headers` file — that is a Cloudflare Pages feature and Vercel ignores it.
+```json
+{
+  "trailingSlash": true,
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "geolocation=(), microphone=(), camera=()" },
+        { "key": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains; preload" }
+      ]
+    }
+  ],
+  "redirects": []
+}
 ```
-/*
-  X-Frame-Options: SAMEORIGIN
-  X-Content-Type-Options: nosniff
-  Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: geolocation=(), microphone=(), camera=()
-  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
-```
+- Set `trailingSlash` to match the site's URL convention (see Domain & URL Consistency) — `false` if the existing site has no trailing slashes.
+- Add any 301 redirects to the `redirects` array (see 301 Redirect Audit).
+- Do not add a Content-Security-Policy header unless the brief asks for one. If you do, include the Turnstile allowances listed in Section 8.
 Verify the result at securityheaders.com before launch.
 
 ### Performance Standards
@@ -1015,58 +1088,143 @@ Every site must achieve before launch:
 - No render-blocking scripts
 - CSS and JS minified
 
-### GitHub Push — End of Every Build
+### GitHub & Vercel — "Push Live" (End of Every Build and Every Amend)
 
-**The order is non-negotiable: GitHub first, Cloudflare second. Always.**
+Sites are hosted on **Vercel**, built automatically from the GitHub repo. Cloudflare Pages is no longer used for hosting (the form Worker still runs on Cloudflare — that does not change).
 
-**NEVER use `wrangler pages deploy` or any direct upload method. Cloudflare must connect to the GitHub repo and build from it. Direct uploads bypass GitHub entirely, break the amend process, remove rollback capability, and mean no one else can ever pick up the work.**
+**Trigger:** when the designer says "push live" (or "deploy", "push it", "send to Vercel"), run the push-live script below. It commits and pushes to GitHub, creates the Vercel project linked to the repo on the first run, waits for Vercel to finish building, and prints the dev link. Do not push live until the designer asks.
 
-**If anything prevents the GitHub push — STOP. Tell the designer what the problem is. Do not find a workaround. Do not deploy to Cloudflare. Do not continue.**
+**The order is non-negotiable: GitHub first, Vercel builds from GitHub. Always.**
+
+**NEVER use `vercel deploy`, `vercel --prod`, `npx vercel` uploads, `wrangler pages deploy`, or any other direct upload method. Vercel must build from the GitHub repo. Direct uploads bypass GitHub entirely, break the amend process, remove rollback capability, and mean no one else can ever pick up the work.**
+
+**If anything prevents the GitHub push — STOP. Tell the designer what the problem is. Do not find a workaround. Do not deploy to Vercel by any other route. Do not continue.**
 
 The GitHub organisation is **built-osam**. Not osam-websites. Not any other name. Always built-osam.
 
-**Step 1 — Install GitHub CLI if not present**
+**Step 1 — Check the tools and credentials**
 ```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-/opt/homebrew/bin/brew install gh
+command -v gh || /opt/homebrew/bin/brew install gh
+gh auth status || gh auth login        # GitHub.com, HTTPS, log in via browser
+test -n "$VERCEL_TOKEN" && test -n "$VERCEL_TEAM_ID" && echo "Vercel credentials OK"
 ```
+If Homebrew itself is missing, install it first: `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`
 
-**Step 2 — Authenticate if needed**
+If `VERCEL_TOKEN` or `VERCEL_TEAM_ID` is not set — STOP and tell the designer to complete the one-time setup below. Never ask the designer to paste the token into the chat, and never write it into any file in the project.
+
+**Step 2 — Make sure the project is a git repo on `main`**
 ```bash
-gh auth status || gh auth login
+git rev-parse --git-dir >/dev/null 2>&1 || git init -b main
 ```
-When prompted: select GitHub.com, HTTPS, log in via browser.
+Make sure `.gitignore` contains `node_modules/`, `dist/`, `.astro/`, `.env` and `.vercel/`.
 
-**Step 3 — Create the private repo in built-osam and push**
-```bash
-gh repo create built-osam/client-[domain] --private --source=. --remote=origin --push
-```
-Replace [domain] with the client domain e.g. `client-plastererdorking.co.uk`
+**Step 3 — Save the push-live script (first push only)**
+Save the following as `scripts/push-live.sh` in the project and run `chmod +x scripts/push-live.sh`. It contains no secrets — it reads the token from the designer's environment — so it is committed with the site.
 
-If the repo already exists:
 ```bash
-git add .
-git commit -m "Initial build — [Client Name]"
+#!/usr/bin/env bash
+# OSAM push live: GitHub first, then Vercel builds from GitHub, then print the link.
+# Usage: ./scripts/push-live.sh <client-domain> "<commit message>"
+#   e.g. ./scripts/push-live.sh plastererdorking.co.uk "Initial build - Plasterer Dorking"
+set -euo pipefail
+
+: "${VERCEL_TOKEN:?VERCEL_TOKEN is not set - see one-time setup in the OSAM skill file}"
+: "${VERCEL_TEAM_ID:?VERCEL_TEAM_ID is not set - see one-time setup in the OSAM skill file}"
+DOMAIN="${1:?Usage: push-live.sh <client-domain> \"<commit message>\"}"
+MESSAGE="${2:-Update - $DOMAIN}"
+
+ORG="built-osam"
+REPO="client-$DOMAIN"                                   # e.g. client-plastererdorking.co.uk
+PROJECT="$(echo "$DOMAIN" | tr 'A-Z.' 'a-z-')"          # e.g. plastererdorking-co-uk
+API="https://api.vercel.com"
+Q="teamId=$VERCEL_TEAM_ID"
+vc() { curl -sS --fail-with-body -H "Authorization: Bearer $VERCEL_TOKEN" -H "Content-Type: application/json" "$@"; }
+js() { node -e "let s='';process.stdin.on('data',c=>s+=c).on('end',()=>{const o=JSON.parse(s);$1})"; }
+
+# 1. GitHub - commit and push (create the private repo in built-osam on first run)
+git add -A
+git commit -m "$MESSAGE" || echo "Nothing new to commit."
+if ! git remote get-url origin >/dev/null 2>&1; then
+  gh repo create "$ORG/$REPO" --private --source=. --remote=origin
+fi
 git push -u origin main
+
+# 2. Vercel - create the project linked to the GitHub repo (first run only)
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $VERCEL_TOKEN" "$API/v9/projects/$PROJECT?$Q")
+if [ "$CODE" = "404" ]; then
+  echo "Creating Vercel project $PROJECT linked to $ORG/$REPO..."
+  vc -X POST "$API/v11/projects?$Q" \
+    -d "{\"name\":\"$PROJECT\",\"framework\":\"astro\",\"gitRepository\":{\"type\":\"github\",\"repo\":\"$ORG/$REPO\"}}" >/dev/null
+  # Turn off Vercel login protection so clients can open the vercel.app link
+  vc -X PATCH "$API/v9/projects/$PROJECT?$Q" -d '{"ssoProtection":null}' >/dev/null
+  # The repo was pushed before the project existed, so push once more to trigger the first build
+  git commit --allow-empty -m "Trigger first Vercel deployment"
+  git push
+elif [ "$CODE" != "200" ]; then
+  echo "Vercel API error (HTTP $CODE) - check VERCEL_TOKEN and VERCEL_TEAM_ID." >&2; exit 1
+fi
+PROJECT_ID=$(vc "$API/v9/projects/$PROJECT?$Q" | js 'console.log(o.id)')
+
+# 3. Wait for the Vercel build of this exact commit (up to ~10 minutes)
+SHA=$(git rev-parse HEAD)
+echo "Waiting for Vercel to build commit ${SHA:0:7}..."
+for i in $(seq 1 60); do
+  INFO=$(vc "$API/v6/deployments?$Q&projectId=$PROJECT_ID&limit=10" | SHA="$SHA" js '
+    const d=(o.deployments||[]).find(x=>x.meta&&x.meta.githubCommitSha===process.env.SHA);
+    console.log(d ? (d.readyState||d.state)+" "+d.uid+" "+d.url : "QUEUED - -")')
+  read -r STATE UID_ URL <<<"$INFO"
+  case "$STATE" in
+    READY)
+      LINK=$(vc "$API/v13/deployments/$UID_?$Q" | js '
+        const a=(o.alias||[]).filter(x=>x.endsWith(".vercel.app")).sort((x,y)=>x.length-y.length);
+        console.log(a[0]||o.url)')
+      echo ""
+      echo "GitHub repo:  https://github.com/$ORG/$REPO"
+      echo "Dev link:     https://$LINK"
+      echo "This build:   https://$URL"
+      exit 0 ;;
+    ERROR|CANCELED)
+      echo "Vercel build $STATE for commit ${SHA:0:7}. Build log: https://$URL/_logs" >&2
+      echo "Run 'npm run build' locally to see the error, fix it, then run this script again." >&2
+      exit 1 ;;
+  esac
+  sleep 10
+done
+echo "Timed out waiting for Vercel. Check the project in the Vercel dashboard." >&2
+exit 1
 ```
 
-**Step 4 — Tell the designer**
-Once pushed, output:
-- The GitHub repo URL: https://github.com/built-osam/client-[domain]
-- The Cloudflare Pages connection steps below
+**Step 4 — Run it**
+```bash
+./scripts/push-live.sh [client-domain] "Initial build — [Client Name]"
+```
+e.g. `./scripts/push-live.sh plastererdorking.co.uk "Initial build — Plasterer Dorking"`
+
+- GitHub repo: `built-osam/client-[domain]` e.g. `client-plastererdorking.co.uk`
+- Vercel project: the domain with dots replaced by hyphens e.g. `plastererdorking-co-uk` — this sets the `vercel.app` dev link
+- Vercel auto-detects Astro: build command `npm run build`, output directory `dist`, production branch `main`. Do not add the `@astrojs/vercel` adapter — sites are static and don't need it.
+
+If the Vercel build fails, the script stops and says so. Run `npm run build` locally, fix the error, then run the script again with a commit message describing the fix.
+
+**Step 5 — Tell the designer**
+Once the script finishes, output:
+- The GitHub repo URL
+- The dev link (`https://[project].vercel.app`) — this is the link to send to the client for approval
 - Any items from the handover summary that need attention
 
-**Step 5 — Cloudflare Pages connection (designer does this)**
-1. Cloudflare dashboard — Workers & Pages — Create — Pages — Connect to Git
-2. Authorise built-osam organisation
-3. Select the client repo e.g. client-more-sleep-more-smiles
-4. Project name: [domain without client- prefix] e.g. more-sleep-more-smiles — this sets the pages.dev URL
-5. Build command: `npm run build`
-6. Output directory: `dist`
-7. Production branch: `main`
-8. Click Save and Deploy — pages.dev link generated automatically
+Every future push to `main` triggers an automatic redeploy on Vercel. This is the only correct deployment method.
 
-Every future push to GitHub triggers an automatic redeploy. This is the only correct deployment method.
+### One-Time Setup — GitHub ↔ Vercel Connection (done once by OSAM, not per site)
+1. **Vercel plan:** the OSAM Vercel team must be on the Pro plan — Hobby is for non-commercial use only and can't deploy private repos from a GitHub organisation.
+2. **Install the Vercel GitHub app on built-osam:** Vercel dashboard → Team Settings → Git → connect GitHub → install the Vercel app on the **built-osam** organisation with access to **All repositories** (so every new client repo is covered automatically).
+3. **Create a Vercel access token:** Vercel → Account Settings → Tokens → Create, scoped to the OSAM team.
+4. **Find the team ID:** Vercel → Team Settings → General → Team ID (starts `team_`).
+5. **On each designer's Mac**, add to `~/.zshrc` then restart the terminal:
+```bash
+export VERCEL_TOKEN="paste-token-here"
+export VERCEL_TEAM_ID="team_xxxxxxxx"
+```
+6. Make sure each designer is logged into GitHub CLI (`gh auth login`) with an account that can create repos in built-osam.
 
 ### 301 Redirect Audit — All Build Types
 Before building any site — Carbon Copy, Modernise, or New Build — crawl the existing live site to find every URL that currently resolves. Do not rely on the sitemap alone — WordPress and other CMS platforms generate URLs that get indexed but never appear in sitemaps (category pages, tag pages, author pages, old campaign pages, paginated pages, duplicate contact pages etc).
@@ -1077,10 +1235,12 @@ Use a tool like Screaming Frog, Sitebulb, or the following curl-based approach t
 **What to do with the list:**
 1. Compare every crawled URL against the pages being built
 2. Any URL that exists on the old site but is NOT being rebuilt needs a 301 redirect to the closest equivalent page
-3. Build the redirect map before writing any code — add every redirect to `public/_redirects`:
-```
-/old-page/    /new-page/    301
-/category/drainage/    /services/drainage/    301
+3. Build the redirect map before writing any code — add every redirect to the `redirects` array in `vercel.json`:
+```json
+"redirects": [
+  { "source": "/old-page/", "destination": "/new-page/", "statusCode": 301 },
+  { "source": "/category/drainage/", "destination": "/services/drainage/", "statusCode": 301 }
+]
 ```
 4. If there is no obvious equivalent — redirect to the homepage or the most relevant service page. Never leave it as a 404.
 5. Test every redirect after deploy
@@ -1093,22 +1253,26 @@ Use a tool like Screaming Frog, Sitebulb, or the following curl-based approach t
 - Old campaign or seasonal pages
 - Duplicate contact pages — `/contact` and `/contact-us` both resolving
 
-Add a checklist item: all crawled URLs from the old site either exist in the new build or have a 301 redirect in `_redirects`.
+Add a checklist item: all crawled URLs from the old site either exist in the new build or have a 301 redirect in `vercel.json`.
 
-### Cloudflare Pages Deployment
-- Connect GitHub repo to Cloudflare Pages
-- Build command: `npm run build`
-- Output directory: `dist`
-- Deploy and share the pages.dev preview link with the client before pointing the domain
+### Vercel Deployment
+- Vercel builds from the GitHub repo via the push-live script (see GitHub & Vercel section)
+- Share the `vercel.app` dev link with the client for approval before pointing the domain
 
 ### DNS Go Live
-Once client has approved the pages.dev preview:
+Once the client has approved the `vercel.app` dev link:
+1. Vercel → the project → Settings → Domains → add the apex domain (`example.co.uk`) and `www.example.co.uk`
+2. Set the non-canonical one to redirect to the canonical one with a 301 (see Domain & URL Consistency)
+3. At the DNS provider, add the records Vercel shows on the Domains screen. Normally:
 ```
-Type: CNAME
-Name: www
-Value: [project-name].pages.cloudflare.com
+Type: A      Name: @     Value: 76.76.21.21
+Type: CNAME  Name: www   Value: cname.vercel-dns.com
 ```
-Cloudflare handles SSL automatically.
+Always use the exact values Vercel displays for the project if they differ from the above.
+4. If the domain's DNS is managed in Cloudflare, set both records to **DNS only** (grey cloud), not Proxied — proxying through Cloudflare interferes with Vercel's SSL and caching.
+5. Remove any old records pointing at Cloudflare Pages (`*.pages.dev`) or the previous host.
+
+Vercel issues the SSL certificate automatically once DNS resolves.
 
 ### Browser & Device Test Matrix
 Test every site on, at minimum:
@@ -1126,17 +1290,17 @@ Check only:
 Flag anything that fails in the handover summary. The designer will review the rest.
 
 ### Post-Amend Push Process
-After every round of amends — whether during the build review or after the site is live — always push changes to GitHub immediately. Cloudflare Pages will redeploy automatically within 60 seconds.
+After every round of amends — whether during the build review or after the site is live — push live using the same script. Vercel redeploys automatically from GitHub and the script prints the dev link once the new build is ready.
 
 ```bash
-git add .
-git commit -m "Amends — [brief description of what changed]"
-git push
+./scripts/push-live.sh [client-domain] "Amends — [brief description of what changed]"
 ```
 
 Do this after every single set of amends. Never leave changes sitting locally without pushing.
 
-If the designer asks for further changes after the initial push, apply all changes, then run the same three commands above. The pages.dev link and live domain will both update automatically.
+If the designer asks for further changes after the initial push, apply all changes, then run the same command. The `vercel.app` dev link and the live domain will both update automatically.
+
+**Older sites still on Cloudflare Pages:** if the repo has no `vercel.json` and no `scripts/push-live.sh`, the site hasn't been moved to Vercel yet. Ask the designer whether to move it before pushing. If moving it: convert `public/_headers` and `public/_redirects` into `vercel.json`, delete those two files, add the push-live script, and push live. The domain stays on Cloudflare Pages until its DNS is switched as in DNS Go Live.
 
 ### Pre-Launch Checklist
 - [ ] All pages present and URLs match brief / original exactly
@@ -1145,7 +1309,7 @@ If the designer asks for further changes after the initial push, apply all chang
 - [ ] Custom 404 page present and matches site design
 - [ ] For Modernise builds with URL changes — all old URLs 301 redirect to their new equivalent, tested
 - [ ] Cookie consent banner present, blocks tracking scripts until accepted
-- [ ] Security headers (`_headers` file) present and verified at securityheaders.com
+- [ ] Security headers (`vercel.json`) present and verified at securityheaders.com
 - [ ] Core Web Vitals checked via PageSpeed Insights — LCP under 2.5s, CLS under 0.1, INP under 200ms. Run once at the end of the build after npm run build, not during.
 - [ ] All phone numbers are tel: links
 - [ ] GA4 conversion events firing for form submission and phone click
@@ -1153,7 +1317,11 @@ If the designer asks for further changes after the initial push, apply all chang
 - [ ] Tested across full browser/device matrix
 - [ ] Phone bar visible on every page
 - [ ] Hero contains form, CTA, and Google badge (if applicable)
-- [ ] Contact form submits and email received correctly
+- [ ] Contact form submits and email received correctly — tested from the live site / vercel.app link
+- [ ] Forms use Cloudflare Turnstile via captcha.js from the form Worker — no Google reCAPTCHA script, no site key anywhere
+- [ ] Turnstile notice ("This site is protected by Cloudflare Turnstile (Privacy Policy).") under the send button on every form
+- [ ] Turnstile box not hidden or clipped — no overflow:hidden on forms, no display:none on .osam-captcha
+- [ ] `_site` hidden field contains the site's full URL on every form
 - [ ] Thank you page displays after form submission
 - [ ] Google Maps displays on contact page
 - [ ] All tracking codes present in head
@@ -1164,7 +1332,8 @@ If the designer asks for further changes after the initial push, apply all chang
 - [ ] Run `npm run build` and confirm it completes without errors before running the SEO audit — check the dist folder output, not just the source files
 - [ ] Schema markup validates at https://search.google.com/test/rich-results
 - [ ] Lighthouse 90+ on Performance and SEO
-- [ ] SSL active
+- [ ] SSL active (Vercel → Domains shows the domain as Valid)
+- [ ] Vercel project builds from the built-osam GitHub repo (no direct uploads)
 - [ ] Mobile layout reviewed on real device or simulator
 - [ ] OSAM legal links present in footer on every page
 - [ ] All internal links working
